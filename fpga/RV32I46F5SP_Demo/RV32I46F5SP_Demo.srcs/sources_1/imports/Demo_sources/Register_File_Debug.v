@@ -53,11 +53,21 @@ module RegisterFileDebug (
     reg [31:0] debug_reg_data_q;
 
     always @(posedge clk) begin
-        if (clk_enable && write_enable && write_reg != 5'd0) begin
+        if (!clk_enable) begin
+            // hold
+        end
+        else if (write_enable && write_reg != 5'd0) begin
             debug_reg_addr_q <= write_reg;
             debug_reg_data_q <= write_data;
         end
     end
+
+    // Initialize debug outputs for clean startup traces
+    initial begin
+        debug_reg_addr_q = 5'd0;
+        debug_reg_data_q = 32'd0;
+    end
+
     assign debug_reg_addr = debug_reg_addr_q;
     assign debug_reg_data = debug_reg_data_q;
 

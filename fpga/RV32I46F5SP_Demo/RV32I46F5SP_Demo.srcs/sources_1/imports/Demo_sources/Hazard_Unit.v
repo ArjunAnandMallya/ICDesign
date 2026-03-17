@@ -102,10 +102,11 @@ module HazardUnit (
         hazard_wb[1] = wb_hazard_rs2 && !mem_hazard_rs2;
 
         if (load_hazard) begin
+            // Classic 5-stage load-use handling:
+            // - Stall fetch/decode so the dependent instruction waits in ID
+            // - Insert a bubble into EX (flush ID/EX)
+            // - Allow older instructions (including the load) to continue to MEM/WB
             IF_ID_stall = 1'b1;
-            ID_EX_stall = 1'b1;
-            EX_MEM_stall = 1'b1;
-            MEM_WB_stall = 1'b1;
             ID_EX_flush = 1'b1;
         end
 
@@ -115,7 +116,10 @@ module HazardUnit (
 
 
 
-        if (trap_done && (branch_prediction_miss || EX_jump)) begin
+        // Control hazards: when a jump is resolved in EX, or when a branch is found mispredicted,
+        // the younger instructions in IF/ID and ID/EX are on the wrong path and must be flushed.
+        // This must not be gated by trap_done; otherwise the core will execute wrong-path instructions.
+        if (branch_prediction_miss || EX_jump) begin
             IF_ID_flush = 1'b1;
             ID_EX_flush = 1'b1;
         end

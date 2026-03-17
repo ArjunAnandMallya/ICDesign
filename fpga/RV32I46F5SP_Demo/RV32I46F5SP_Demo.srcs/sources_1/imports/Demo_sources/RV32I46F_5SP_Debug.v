@@ -232,8 +232,11 @@ module RV32I46F5SPDebug #(
     wire [XLEN-1:0] alu_forward_source_data_b;
     wire [1:0] alu_forward_source_select_a;
     wire [1:0] alu_forward_source_select_b;
+    wire [XLEN-1:0] mem_forward_value;
+    wire [XLEN-1:0] wb_forward_value;
     reg [XLEN-1:0] alu_normal_source_a;
     reg [XLEN-1:0] alu_normal_source_b;
+    reg [XLEN-1:0] ex_store_write_data;
 
     // Branch Predictor
     wire branch_estimation;
@@ -244,6 +247,13 @@ module RV32I46F5SPDebug #(
 
     wire csr_write_enable_source;
     assign csr_write_enable_source = tc_csr_write_enable ? tc_csr_write_enable : WB_csr_write_enable;
+
+    // Stall PC whenever IF/ID is stalled, otherwise fetched instructions get dropped.
+    wire pc_stall_effective = pc_stall || IF_ID_stall;
+
+    // JALR requires (rs1 + imm) & ~1 per RISC-V spec.
+    wire [XLEN-1:0] jump_target_effective =
+        (EX_opcode == `OPCODE_JALR) ? {alu_result[XLEN-1:1], 1'b0} : alu_result;
 
     // === Debug Ports ===
     
@@ -270,11 +280,11 @@ module RV32I46F5SPDebug #(
         .branch_prediction_miss(branch_prediction_miss),
         .trapped(trapped),
         .pc(pc),
-        .jump_target(alu_result),
+        .jump_target(jump_target_effective),
         .branch_target(branch_target),
         .branch_target_actual(branch_target_actual),
         .trap_target(trap_target),
-        .pc_stall(pc_stall),
+        .pc_stall(pc_stall_effective),
         .next_pc(next_pc)
     );
 
@@ -344,7 +354,8 @@ module RV32I46F5SPDebug #(
         .clk(clk),
         .clk_enable(clk_enable),
         .write_enable(MEM_memory_write),
-        .address(MEM_alu_result[14:0]),
+        // DataMemory is word-addressed (32-bit words). Use byte_addr[11:2] for 4KB.
+        .address(MEM_alu_result[11:2]),
         .write_data(data_memory_write_data),
         .write_mask(write_mask),
 
@@ -555,7 +566,7 @@ module RV32I46F5SPDebug #(
         .EX_rs1(EX_rs1),
         .EX_rd(EX_rd),
         .EX_raw_imm(EX_raw_imm),
-        .EX_read_data2(EX_read_data2),
+        .EX_read_data2(ex_store_write_data),
         .EX_imm(EX_imm),
         .EX_csr_read_data(EX_csr_read_data),
 
@@ -692,7 +703,9 @@ module RV32I46F5SPDebug #(
         .WB_csr_write_data(WB_alu_result),
         .csr_read_data(csr_read_out),
 
-        .csr_forward_data(csr_forward_data)
+        .csr_forward_data(csr_forward_data),
+        .mem_forward_value(mem_forward_value),
+        .wb_forward_value(wb_forward_value)
     );
 
     BranchPredictor #(.XLEN(XLEN)) branch_predictor(
@@ -775,17 +788,29 @@ module RV32I46F5SPDebug #(
             end
         endcase
 
-        case (alu_forward_source_select_a)
-            2'b10: src_A = alu_forward_source_data_a;
-            2'b11: src_A = alu_forward_source_data_a;
-            default: src_A = alu_normal_source_a;
-        endcase
+        // Only forward into ALU A when ALU A is actually using rs1 data.
+        if (EX_alu_src_A_select == `ALU_SRC_A_RD1 && alu_forward_source_select_a != 2'b00) begin
+            src_A = alu_forward_source_data_a;
+        end else begin
+            src_A = alu_normal_source_a;
+        end
 
-        case (alu_forward_source_select_b)
-            2'b10: src_B = alu_forward_source_data_b;
-            2'b11: src_B = alu_forward_source_data_b;
-            default: src_B = alu_normal_source_b;
-        endcase
+        // Only forward into ALU B when ALU B is actually using rs2 data.
+        if (EX_alu_src_B_select == `ALU_SRC_B_RD2 && alu_forward_source_select_b != 2'b00) begin
+            src_B = alu_forward_source_data_b;
+        end else begin
+            src_B = alu_normal_source_b;
+        end
+
+        // Store-data forwarding (separate from ALU operand forwarding).
+        // Stores carry rs2 data through EX/MEM as EX_read_data2; forward when needed.
+        if (hazard_mem[1]) begin
+            ex_store_write_data = mem_forward_value;
+        end else if (hazard_wb[1]) begin
+            ex_store_write_data = wb_forward_value;
+        end else begin
+            ex_store_write_data = EX_read_data2;
+        end
     end
 
 endmodule

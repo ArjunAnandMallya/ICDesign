@@ -21,7 +21,7 @@ module ForwardUnit #(
 
     input wire csr_hazard_mem,
     input wire csr_hazard_wb,
-    input wire [31:0] MEM_csr_write_data,
+    input wire [31:0] MEM_csr_write_data, 
     input wire [31:0] WB_csr_write_data,
     input wire [31:0] csr_read_data,
 
@@ -30,7 +30,11 @@ module ForwardUnit #(
     output wire [1:0] alu_forward_source_select_a, // ALU source A selection between normal source and forwarded source
     output wire [1:0] alu_forward_source_select_b, // ALU source B selection between normal source and forwarded source
 
-    output wire [31:0] csr_forward_data
+    output wire [31:0] csr_forward_data,
+
+    // Expose computed forward values for non-ALU paths (e.g., store-data forwarding)
+    output wire [XLEN-1:0] mem_forward_value,
+    output wire [XLEN-1:0] wb_forward_value
 );
     reg [31:0] MEM_forward_data_value;
     reg [31:0] WB_forward_data_value;
@@ -51,6 +55,8 @@ module ForwardUnit #(
             hazard_wb[1] ? WB_forward_data_value : {XLEN{1'b0}};
 
     assign csr_forward_data = csr_forward_data_value;
+    assign mem_forward_value = MEM_forward_data_value;
+    assign wb_forward_value = WB_forward_data_value;
 
     always @(*) begin
         case (MEM_opcode)

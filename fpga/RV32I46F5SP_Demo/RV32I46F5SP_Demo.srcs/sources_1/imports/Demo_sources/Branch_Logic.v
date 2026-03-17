@@ -26,7 +26,10 @@ module BranchLogic (
 				`BRANCH_BGEU: branch_taken = alu_zero;
 				default: branch_taken = 1'b0;
 			endcase
-			branch_target_actual = pc + imm;
+			// "Actual" redirect target must represent the correct next PC on a mispredict:
+			// - if branch is taken: pc + imm
+			// - if branch is not taken: pc + 4 (fall-through)
+			branch_target_actual = branch_taken ? (pc + imm) : (pc + 32'd4);
 			branch_prediction_miss = (branch_estimation != branch_taken);
 		end
 		else begin
