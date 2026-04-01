@@ -294,6 +294,8 @@ module RV32I46F5SPDebug #(
     );
 
     InstructionMemory instruction_memory (
+        .clk(clk),
+        .reset(reset),
         .pc(pc),
         .instruction(im_instruction)
     );
@@ -337,6 +339,7 @@ module RV32I46F5SPDebug #(
     RegisterFileDebug register_file_debug (
         .clk(clk),
         .clk_enable(clk_enable),
+        .reset(reset),
         .read_reg1(rs1),
         .read_reg2(rs2),
         .write_reg(WB_rd),
@@ -353,6 +356,7 @@ module RV32I46F5SPDebug #(
     DataMemory data_memory (
         .clk(clk),
         .clk_enable(clk_enable),
+        .reset(reset),
         .write_enable(MEM_memory_write),
         // DataMemory is word-addressed (32-bit words). Use byte_addr[11:2] for 4KB.
         .address(MEM_alu_result[11:2]),

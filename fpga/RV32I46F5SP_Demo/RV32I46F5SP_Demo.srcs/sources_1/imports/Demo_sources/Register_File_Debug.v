@@ -1,6 +1,7 @@
 module RegisterFileDebug (
     input clk,                      // clock signal
     input clk_enable,
+    input reset,
     input [4:0] read_reg1,          // take address of register 1 to read stored value
     input [4:0] read_reg2,          // take address of register 2 to read stored value
     input [4:0] write_reg,          // take address of register to write value
@@ -18,9 +19,6 @@ module RegisterFileDebug (
     reg [31:0] registers [0:31]; // 32 registers with 32 bits each
     
     integer i;
-    initial begin
-    for (i = 1; i < 32; i = i + 1) registers[i] = 32'b0;
-    end
 
     // Read operation
     always @(*) begin
@@ -42,8 +40,12 @@ module RegisterFileDebug (
     end
 
     // Write operation
-    always @(posedge clk) begin
-        if (clk_enable && write_enable && write_reg != 5'd0) begin
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            for (i = 0; i < 32; i = i + 1) begin
+                registers[i] <= 32'b0;
+            end
+        end else if (clk_enable && write_enable && write_reg != 5'd0) begin
             registers[write_reg] <= write_data; // write to register if not x0
         end
     end
@@ -52,20 +54,14 @@ module RegisterFileDebug (
     reg [4:0]  debug_reg_addr_q;
     reg [31:0] debug_reg_data_q;
 
-    always @(posedge clk) begin
-        if (!clk_enable) begin
-            // hold
-        end
-        else if (write_enable && write_reg != 5'd0) begin
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            debug_reg_addr_q <= 5'd0;
+            debug_reg_data_q <= 32'd0;
+        end else if (clk_enable && write_enable && write_reg != 5'd0) begin
             debug_reg_addr_q <= write_reg;
             debug_reg_data_q <= write_data;
         end
-    end
-
-    // Initialize debug outputs for clean startup traces
-    initial begin
-        debug_reg_addr_q = 5'd0;
-        debug_reg_data_q = 32'd0;
     end
 
     assign debug_reg_addr = debug_reg_addr_q;
