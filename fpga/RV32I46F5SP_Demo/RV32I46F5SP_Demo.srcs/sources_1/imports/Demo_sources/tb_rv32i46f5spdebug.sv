@@ -4,10 +4,11 @@ module tb_rv32i46f5spdebug;
   localparam int XLEN = 32;
 
   // Program-specific "done" heuristic:
-  // Your current InstructionMemory image ends with data[81] = 0x0000006f (jal x0,0),
-  // which lives at PC = 81*4 = 0x144. We stop once we observe the core sitting there.
-  localparam logic [31:0] DONE_PC   = 32'h0000_0144;
-  localparam logic [31:0] DONE_INSN = 32'h0000_006f;
+  // Your current InstructionMemory image ends at data[18] (PC=18*4=0x48).
+  // After that, memory defaults to NOPs (0x00000013). We stop once we see NOPs
+  // after the last programmed PC for a few cycles.
+  localparam logic [31:0] LAST_PC   = 32'h0000_0048;
+  localparam logic [31:0] NOP_INSN  = 32'h0000_0013;
   localparam int MAX_CYCLES = 3000;
   localparam int DONE_STREAK_CYCLES = 8;
 
@@ -62,10 +63,10 @@ module tb_rv32i46f5spdebug;
 
     repeat (MAX_CYCLES) begin
       @(posedge clk);
-      if (debug_pc == DONE_PC && debug_instruction == DONE_INSN) begin
+      if (debug_pc > LAST_PC && debug_instruction == NOP_INSN) begin
         done_streak = done_streak + 1;
         if (done_streak >= DONE_STREAK_CYCLES) begin
-          $display("DONE: observed jal x0,0 at PC=%08h for %0d cycles", DONE_PC, DONE_STREAK_CYCLES);
+          $display("DONE: observed NOPs after LAST_PC=%08h for %0d cycles", LAST_PC, DONE_STREAK_CYCLES);
           $display("FINAL: a0/x10 = 0x%08h", dut.register_file_debug.registers[10]);
           $finish;
         end

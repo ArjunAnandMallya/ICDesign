@@ -19,9 +19,7 @@ module InstructionMemory (
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             // Default everything to NOP so you never fetch X.
-            for (i = 0; i < 32; i = i + 1) begin
-                data[i] <= 32'h00000013; // ADDI x0,x0,0
-            end
+ 
 
 //        // Program image (from your C->RISC-V compile / dump)
 // data[0]  = {12'h100, 5'd0, `ITYPE_ADDI, 5'd1, `OPCODE_ITYPE};   // addi x1,x0,0x100
@@ -78,6 +76,19 @@ module InstructionMemory (
 		data[16] = {7'b0100000, 5'd3, 5'd12, `RTYPE_SR, 5'd17, `OPCODE_RTYPE};		// SRA: x17 = x12 >>> x3 = FBC00000
 		data[17] = {7'b0000000, 5'd7, 5'd11, `RTYPE_OR, 5'd18, `OPCODE_RTYPE};		// OR:  x18 = x11 OR x7 = FBFFFB11
 		data[18] = {7'b0000000, 5'd11, 5'd7, `RTYPE_AND, 5'd19, `OPCODE_RTYPE};		// AND: x19 = x7 AND x11 = 0B800000
+data[19] = 32'h00000013;
+data[20] = 32'h00000013;
+data[21] = 32'h00000013;
+data[22] = 32'h00000013;
+data[23] = 32'h00000013;
+data[24] = 32'h00000013;
+data[25] = 32'h00000013;
+data[26] = 32'h00000013;
+data[27] = 32'h00000013;
+data[28] = 32'h00000013;
+data[29] = 32'h00000013;
+data[30] = 32'h00000013;
+data[31] = 32'h00000013;
 
         end
     end
